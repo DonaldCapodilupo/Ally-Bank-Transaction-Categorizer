@@ -1,4 +1,3 @@
-// _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <list>
 #include <string>
@@ -6,11 +5,8 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include <istream>
 #include <ostream>
-#include <string>
 #include <chrono>
-#include <algorithm>
 
 
 void setUpFolders();
@@ -19,10 +15,7 @@ std::vector<std::string> getBankTransactionInformation();
 std::string getCategoryInformation(const std::string& description);
 void addCategory(std::string oldDescription, std::string newCategory);
 void mergeTransactionsWithCategories(std::vector<std::string> categoryVector );
-
-
 void backupToCSV();
-
 
 
 int main() {
@@ -43,10 +36,10 @@ int main() {
     //This is the function that fills the vector with all of the "Description" values in transactions.csv
     bankTransactionVector = getBankTransactionInformation(); // vector of all descriptions in transactions.csv
 
-    backupToCSV();
 
 
 
+    std::vector<std::string> bankTransactionsCategorized;
     //Iterate through the vector to see if each value is in categories.csv
     for(auto & bankDescription : bankTransactionVector) {
         if(bankDescription == " Description"){
@@ -54,9 +47,12 @@ int main() {
         }
         std::cout << "Attempting to find a category for " << "\"" << bankDescription << "\"" << std::endl;
         std::string category = getCategoryInformation(bankDescription);
+        bankTransactionsCategorized.push_back(category);
     }
 
-
+    mergeTransactionsWithCategories(bankTransactionsCategorized);
+    _chdir("Personal Finance Data");
+    backupToCSV();
 
     return 0;
 }
@@ -212,6 +208,7 @@ void backupToCSV(){
 void mergeTransactionsWithCategories(std::vector<std::string> categoryVector ){
     std::string line, find, transaction;
     std::ifstream myFile;
+
     myFile.open("transactions.csv");
 
     std::ofstream temp;
@@ -219,8 +216,14 @@ void mergeTransactionsWithCategories(std::vector<std::string> categoryVector ){
 
     int i = 0;
     while (getline(myFile, line)){
-        temp << line << categoryVector[i] << std::endl;
-        i += 1;
+        if (i == 0){
+            temp << line << ", Category" << std::endl;
+            i+= 1;
+        }
+        else{
+            temp << line << ", " << categoryVector[i-1] << std::endl;
+            i += 1;
+        }
     }
     myFile.close();
     temp.close();
