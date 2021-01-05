@@ -1,3 +1,4 @@
+// _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <list>
 #include <string>
@@ -8,6 +9,8 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <chrono>
+#include <algorithm>
 
 
 void setUpFolders();
@@ -15,9 +18,10 @@ bool checkTransactionHistoryDownloaded();
 std::vector<std::string> getBankTransactionInformation();
 std::string getCategoryInformation(const std::string& description);
 void addCategory(std::string oldDescription, std::string newCategory);
-void backupCSV(const char *const);
+void mergeTransactionsWithCategories(std::vector<std::string> categoryVector );
 
-std::vector<std::string> getVectorOfCategories();
+
+void backupToCSV();
 
 
 
@@ -31,7 +35,7 @@ int main() {
     //Confirm that there is a transactions.csv in the same directory as the program
     bool userDownloaded;
     userDownloaded = checkTransactionHistoryDownloaded();
-    if (userDownloaded == false){
+    if (!userDownloaded){
         std::cout << "Terminating Program." << std::endl;
         return 0;
     }
@@ -39,12 +43,8 @@ int main() {
     //This is the function that fills the vector with all of the "Description" values in transactions.csv
     bankTransactionVector = getBankTransactionInformation(); // vector of all descriptions in transactions.csv
 
-    //Backup the transaction.csv
-    std::string backupTitle;
-    std::cout << "What is today's date? (Used to create the backup file)" << std::endl;
-    std::cin >> backupTitle;
+    backupToCSV();
 
-    backupCSV(backupTitle);
 
 
     //Iterate through the vector to see if each value is in categories.csv
@@ -52,7 +52,7 @@ int main() {
         if(bankDescription == " Description"){
             continue; //Ignore the header row.
         }
-        std::cout << "Attempting to find a category for " << "\"" <<bankDescription << "\"" << std::endl;
+        std::cout << "Attempting to find a category for " << "\"" << bankDescription << "\"" << std::endl;
         std::string category = getCategoryInformation(bankDescription);
     }
 
@@ -60,9 +60,6 @@ int main() {
 
     return 0;
 }
-
-
-
 
 
 void setUpFolders(){
@@ -158,34 +155,6 @@ std::string getCategoryInformation(const std::string& bankDescription){
 
 }
 
-std::vector<std::string> getVectorOfCategories(){
-
-    std::string line, date, time, amount, type, description;
-    std::vector <std::string> categoryList;
-    _chdir("Personal Finance Data");
-    std::ifstream dataList("transactions.csv");
-
-    std::cout << "Iterating through the transaction history." << std::endl;
-
-
-    while(getline(dataList,line)){
-        std::stringstream ss(line);
-        getline(ss, date, ',');
-        getline(ss, time, ',');
-        getline(ss, amount, ',');
-        getline(ss, type, ',');
-        getline(ss, description, ',');
-        categoryList.push_back(getCategoryInformation(description));
-
-    }
-
-    for(auto & i : categoryList) {
-        std::cout << i << std::endl;
-    }
-    return categoryList;
-}
-
-
 void addCategory(std::string oldDescription, std::string newCategory){
     _chdir("Personal Finance Data");
 
@@ -200,17 +169,23 @@ void addCategory(std::string oldDescription, std::string newCategory){
 
 }
 
-void backupCSV(const char *const fileName){
+void backupToCSV(){
+
+    //Get the date as a string, convert it to constant character so that the "rename" function accepts it.
+    time_t t = time(0);
+    struct tm * timeStruct = localtime(&t);
+    std::string dateToReturn = std::to_string(timeStruct->tm_mon) + std::to_string(timeStruct->tm_mday)
+            + std::to_string(timeStruct->tm_year) +".csv";
+    const char * dateValue = dateToReturn.c_str();
+
+
     std::string line, find, transaction;
 
-    //Get Data from "Data.csv"
+    //Get Data from "transactions.csv"
     std::vector <std::string> data;
     std::ifstream dataList("transactions.csv");
     std::string input;
-    while (getline(dataList, input)){
-        data.push_back(input);
-    }
-    dataList.close();
+
 
     _chdir("Statement History");
 
@@ -219,18 +194,38 @@ void backupCSV(const char *const fileName){
 
     std::ifstream myFile; //for reading records
 
-    myFile.open(fileName);
+
+    std::ofstream temp;
+    temp.open(dateValue);
+    while (getline(dataList, line))
+    {
+        temp << line << std::endl;
+    }
+    dataList.close();
+    temp.close();
+
+    _chdir("..");
+    std::remove("transactions.csv");
+
+}
+
+void mergeTransactionsWithCategories(std::vector<std::string> categoryVector ){
+    std::string line, find, transaction;
+    std::ifstream myFile;
+    myFile.open("transactions.csv");
 
     std::ofstream temp;
     temp.open("temp.csv");
-    while (getline(myFile, line))
-    {
-        if (line != transaction)
-            temp << line << std::endl;
+
+    int i = 0;
+    while (getline(myFile, line)){
+        temp << line << categoryVector[i] << std::endl;
+        i += 1;
     }
     myFile.close();
     temp.close();
-    std::remove(fileName);
-    std::rename("temp.csv", fileName);
+    std::remove("transactions.csv");
+    std::rename("temp.csv", "transactions.csv");
+
 
 }
